@@ -1,47 +1,35 @@
-/* Developmental Disorders: fill an empty table, one dropdown per cell. */
+/* Developmental Disorders: fill an empty table of 14 disorders, one dropdown per cell. */
 (() => {
   'use strict';
 
   // ------------------------------------------------------------------
-  // Data: three parts, each a table of disorders (columns) by criteria (rows)
+  // Data: disorders are the columns, criteria are the rows
   // ------------------------------------------------------------------
   const norm = s => String(s).toLowerCase().replace(/\s+/g, ' ').trim();
-  const D = window.DISORDERS || { criteria: [], parts: [] };
+  const D = window.DISORDERS || { criteria: [], disorders: [] };
   const CRITS = D.criteria;
-  const parts = D.parts.map((p, pi) => {
-    const part = {
-      idx: pi, title: p.title, key: 'part' + (pi + 1),
-      disorders: p.disorders.map((d, ci) => ({ idx: ci, name: d.name })),
-      rows: [], cells: []
-    };
-    CRITS.forEach((crit, ri) => {
-      const options = [];
-      const seen = new Set();
-      const labels = p.disorders.map(d => (d.cells && d.cells[crit]) || 'Not specified');
-      labels.forEach(label => { const k = norm(label); if (!seen.has(k)) { seen.add(k); options.push({ key: k, label }); } });
-      // A row with one answer for everybody isn't played: it's filled in from the start
-      const row = { idx: ri, crit, options, given: options.length < 2, cells: [] };
-      labels.forEach((label, ci) => {
-        const cell = { id: `p${pi}r${ri}c${ci}`, part: pi, row: ri, col: ci, label, key: norm(label), given: row.given };
-        row.cells.push(cell);
-        part.cells.push(cell);
-      });
-      part.rows.push(row);
-    });
-    part.playable = part.cells.filter(c => !c.given);
-    return part;
+  const DIS = D.disorders.map((d, ci) => ({ idx: ci, name: d.name, short: d.short || d.name }));
+  const byAZ = (a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true });
+  const ROWS = CRITS.map((crit, ri) => {
+    const labels = D.disorders.map(d => (d.cells && d.cells[crit]) || 'Not specified');
+    const options = [];
+    const seen = new Set();
+    labels.forEach(label => { const k = norm(label); if (!seen.has(k)) { seen.add(k); options.push({ key: k, label }); } });
+    options.sort(byAZ); // A to Z: easy to scan, and gives nothing away
+    // A row with one answer for everybody isn't played: it's filled in from the start
+    const row = { idx: ri, crit, options, given: options.length < 2, cells: [] };
+    labels.forEach((label, ci) => row.cells.push({ id: `r${ri}c${ci}`, row: ri, col: ci, label, key: norm(label), given: row.given }));
+    return row;
   });
-  const cellById = new Map();
-  parts.forEach(p => p.cells.forEach(c => cellById.set(c.id, c)));
-  const ALL_PLAYABLE = parts.reduce((n, p) => n + p.playable.length, 0);
-  const ALL_DISORDERS = parts.reduce((n, p) => n + p.disorders.length, 0);
-  const SCOPES = [{ key: 'all', name: 'All three parts', short: 'All three', parts: parts.map(p => p.idx) }]
-    .concat(parts.map(p => ({ key: p.key, name: p.title, short: p.title, parts: [p.idx] })));
-  const scopeByKey = new Map(SCOPES.map(s => [s.key, s]));
-  const scopeLabel = k => (scopeByKey.get(k) || SCOPES[0]).name;
-  const rowOf = c => parts[c.part].rows[c.row];
-  const disorderOf = c => parts[c.part].disorders[c.col];
-  const critText = s => String(s).replace(/\//g, '/\u200b'); // lets "Inheritance/Transmission" wrap
+  const CELLS = ROWS.flatMap(r => r.cells);
+  const PLAYABLE = CELLS.filter(c => !c.given);
+  const TOTAL = PLAYABLE.length;
+  const cellById = new Map(CELLS.map(c => [c.id, c]));
+  const colCells = ci => PLAYABLE.filter(c => c.col === ci);
+  const SCOPE = 'all'; // the whole table; kept in the leaderboard rows for future variations
+  const rowOf = c => ROWS[c.row];
+  const disorderOf = c => DIS[c.col];
+  const critText = s => String(s).replace(/\//g, '/​'); // lets "Inheritance/Transmission" wrap
   const labelOf = (c, key) => { const o = rowOf(c).options.find(x => x.key === key); return o ? o.label : key; };
 
   const $ = id => document.getElementById(id);
@@ -50,15 +38,15 @@
     time: $('statTime'), mistakes: $('statMistakes'), hints: $('statHints'), score: $('statScore'),
     btnHint: $('btnHint'), btnCheck: $('btnCheck'), btnReveal: $('btnReveal'), btnBoard: $('btnBoard'), btnNew: $('btnNew'), btnSound: $('btnSound'),
     progress: $('progressFill'),
-    board: $('board'), partTabs: $('partTabs'), matchCount: $('matchCount'),
+    board: $('board'), jumpBar: $('jumpBar'), matchCount: $('matchCount'),
     streak: $('streak'), streakText: $('streakText'),
     toast: $('toast'),
     menu: $('menu'), menuScrim: $('menuScrim'), menuTitle: $('menuTitle'), menuMsg: $('menuMsg'), menuList: $('menuList'), menuX: $('menuX'),
     confetti: $('confetti'),
-    intro: $('introDialog'), introForm: $('introForm'), nickInput: $('nickInput'), nickHint: $('nickHint'), btnStudy: $('btnStudy'), scopeGrid: $('scopeGrid'),
+    intro: $('introDialog'), introForm: $('introForm'), nickInput: $('nickInput'), nickHint: $('nickHint'), btnStudy: $('btnStudy'),
     result: $('resultDialog'), resultTitle: $('resultTitle'), resultText: $('resultText'), resultStats: $('resultStats'), resultBest: $('resultBest'), resultActions: $('resultActions'), mascot: $('mascot'),
-    boardDialog: $('boardDialog'), boardBody: $('boardBody'), boardNote: $('boardNote'), boardClose: $('boardClose'), boardScopes: $('boardScopes'),
-    tableDialog: $('tableDialog'), tableWrap: $('tableWrap'), tableClose: $('tableClose'), tableDone: $('tableDone'), tablePrint: $('tablePrint'), studyTabs: $('studyTabs'),
+    boardDialog: $('boardDialog'), boardBody: $('boardBody'), boardNote: $('boardNote'), boardClose: $('boardClose'),
+    tableDialog: $('tableDialog'), tableWrap: $('tableWrap'), tableClose: $('tableClose'), tableDone: $('tableDone'), tablePrint: $('tablePrint'),
     confirm: $('confirmDialog'), confirmTitle: $('confirmTitle'), confirmText: $('confirmText'), confirmYes: $('confirmYes'), confirmNo: $('confirmNo')
   };
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -93,7 +81,10 @@
   const nickKey = v => cleanNick(v).toLowerCase();
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   const boardLabel = mode => (mode === 'test' ? 'Test' : 'Practice');
-  const listNames = names => names.length <= 1 ? (names[0] || '') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+  const listNames = names => {
+    if (names.length > 3) return `${names.slice(0, 2).join(', ')} and ${names.length - 2} others`;
+    return names.length <= 1 ? (names[0] || '') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+  };
 
   // ------------------------------------------------------------------
   // Global leaderboard (Supabase REST). Off until config.js has both values.
@@ -127,12 +118,12 @@
     submit(run) {
       return this.req('disorders_scores', { method: 'POST', headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(run) });
     },
-    board(mode, scope) {
-      return this.req(`disorders_leaderboard?select=nickname,nickname_key,score_ms,time_ms,mistakes,hints,runs,created_at&mode=eq.${mode}&scope=eq.${scope}&order=score_ms.asc,created_at.asc&limit=500`);
+    board(mode) {
+      return this.req(`disorders_leaderboard?select=nickname,nickname_key,score_ms,time_ms,mistakes,hints,runs,created_at&mode=eq.${mode}&scope=eq.${SCOPE}&order=score_ms.asc,created_at.asc&limit=500`);
     },
     runs(key) {
       const quoted = '"' + key.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
-      return this.req(`disorders_scores?select=nickname,mode,scope,score_ms,time_ms,mistakes,hints,created_at&nickname_key=eq.${encodeURIComponent(quoted)}&order=created_at.desc&limit=200`);
+      return this.req(`disorders_scores?select=nickname,mode,score_ms,time_ms,mistakes,hints,created_at&scope=eq.${SCOPE}&nickname_key=eq.${encodeURIComponent(quoted)}&order=created_at.desc&limit=200`);
     }
   };
   // The table doesn't exist yet: supabase/leaderboard.sql hasn't been run in the project
@@ -389,190 +380,204 @@
   }
 
   // ------------------------------------------------------------------
-  // Building the board: one table per part, all built once
+  // Building the board: one table, built once
   // ------------------------------------------------------------------
   const CHECK_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5"/></svg>';
   const CHEV_SVG = '<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6l4.5 4.5L12.5 6"/></svg>';
   const cellEls = new Map();
-  const heads = [];   // heads[part][col] = { th, count, fill }
-  const grids = [];   // grids[part] = table
+  const heads = [];  // heads[col] = { th, countText, fill }
+  const jumps = [];  // jumps[col] = button in the jump bar
+  let corner = null;
 
   function buildBoard() {
     el.board.innerHTML = '';
-    parts.forEach(p => {
-      const t = document.createElement('table');
-      t.className = 'grid';
-      t.dataset.part = p.idx;
-      t.style.setProperty('--n', p.disorders.length);
-      t.setAttribute('aria-label', `Developmental disorders, ${p.title}`);
-      const cg = document.createElement('colgroup');
-      const cc = document.createElement('col'); cc.className = 'c-crit'; cg.appendChild(cc);
-      p.disorders.forEach(() => cg.appendChild(document.createElement('col')));
-      t.appendChild(cg);
+    const t = document.createElement('table');
+    t.className = 'grid';
+    t.style.setProperty('--n', DIS.length);
+    t.setAttribute('aria-label', 'Developmental disorders');
+    const cg = document.createElement('colgroup');
+    const cc = document.createElement('col'); cc.className = 'c-crit'; cg.appendChild(cc);
+    DIS.forEach(() => cg.appendChild(document.createElement('col')));
+    t.appendChild(cg);
 
-      const hr = t.createTHead().insertRow();
-      const corner = document.createElement('th');
-      corner.className = 'corner';
-      corner.scope = 'col';
-      corner.textContent = 'Criteria';
-      hr.appendChild(corner);
-      heads[p.idx] = [];
-      p.disorders.forEach(d => {
-        const th = document.createElement('th');
-        th.className = 'dis';
-        th.scope = 'col';
-        const name = document.createElement('span');
-        name.className = 'dis-name';
-        name.textContent = d.name;
-        const meta = document.createElement('span');
-        meta.className = 'dis-meta';
-        const count = document.createElement('span');
-        count.className = 'dis-count';
-        count.innerHTML = CHECK_SVG;
-        const countText = document.createElement('span');
-        count.appendChild(countText);
-        const vessel = document.createElement('span');
-        vessel.className = 'vessel';
-        vessel.setAttribute('aria-hidden', 'true');
-        const fill = document.createElement('span');
-        vessel.appendChild(fill);
-        meta.append(count, vessel);
-        th.append(name, meta);
-        hr.appendChild(th);
-        heads[p.idx].push({ th, countText, fill });
-      });
-
-      const tb = t.createTBody();
-      p.rows.forEach(row => {
-        const tr = tb.insertRow();
-        if (row.given) tr.className = 'row-given';
-        const th = document.createElement('th');
-        th.className = 'crit';
-        th.scope = 'row';
-        th.textContent = critText(row.crit);
-        if (row.given) {
-          const note = document.createElement('span');
-          note.className = 'crit-note';
-          note.textContent = 'Same for all, filled in';
-          th.appendChild(note);
-        }
-        tr.appendChild(th);
-        row.cells.forEach(c => {
-          const td = tr.insertCell();
-          if (c.given) {
-            const s = document.createElement('span');
-            s.className = 'given';
-            fillText(s, c.label);
-            td.appendChild(s);
-            return;
-          }
-          const b = document.createElement('button');
-          b.type = 'button';
-          b.className = 'cell empty';
-          b.dataset.cell = c.id;
-          b.setAttribute('aria-haspopup', 'listbox');
-          b.setAttribute('aria-expanded', 'false');
-          const text = document.createElement('span');
-          text.className = 'cell-text';
-          b.appendChild(text);
-          b.insertAdjacentHTML('beforeend', CHEV_SVG);
-          b.textEl = text;
-          b.shown = null;
-          td.appendChild(b);
-          cellEls.set(c.id, b);
-        });
-      });
-      el.board.appendChild(t);
-      grids[p.idx] = t;
+    const hr = t.createTHead().insertRow();
+    corner = document.createElement('th');
+    corner.className = 'corner';
+    corner.scope = 'col';
+    corner.textContent = 'Criteria';
+    hr.appendChild(corner);
+    DIS.forEach(d => {
+      const th = document.createElement('th');
+      th.className = 'dis';
+      th.scope = 'col';
+      th.dataset.col = d.idx;
+      const name = document.createElement('span');
+      name.className = 'dis-name';
+      name.textContent = d.name;
+      const meta = document.createElement('span');
+      meta.className = 'dis-meta';
+      const count = document.createElement('span');
+      count.className = 'dis-count';
+      count.innerHTML = CHECK_SVG;
+      const countText = document.createElement('span');
+      count.appendChild(countText);
+      const vessel = document.createElement('span');
+      vessel.className = 'vessel';
+      vessel.setAttribute('aria-hidden', 'true');
+      const fill = document.createElement('span');
+      vessel.appendChild(fill);
+      meta.append(count, vessel);
+      th.append(name, meta);
+      hr.appendChild(th);
+      heads.push({ th, countText, fill });
     });
+
+    const tb = t.createTBody();
+    ROWS.forEach(row => {
+      const tr = tb.insertRow();
+      if (row.given) tr.className = 'row-given';
+      const th = document.createElement('th');
+      th.className = 'crit';
+      th.scope = 'row';
+      th.textContent = critText(row.crit);
+      if (row.given) {
+        const note = document.createElement('span');
+        note.className = 'crit-note';
+        note.textContent = 'Same for all, filled in';
+        th.appendChild(note);
+      }
+      tr.appendChild(th);
+      row.cells.forEach(c => {
+        const td = tr.insertCell();
+        if (c.given) {
+          const s = document.createElement('span');
+          s.className = 'given';
+          fillText(s, c.label);
+          td.appendChild(s);
+          return;
+        }
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'cell empty';
+        b.dataset.cell = c.id;
+        b.setAttribute('aria-haspopup', 'listbox');
+        b.setAttribute('aria-expanded', 'false');
+        const text = document.createElement('span');
+        text.className = 'cell-text';
+        b.appendChild(text);
+        b.insertAdjacentHTML('beforeend', CHEV_SVG);
+        b.textEl = text;
+        b.shown = null;
+        td.appendChild(b);
+        cellEls.set(c.id, b);
+      });
+    });
+    el.board.appendChild(t);
   }
 
-  function buildTabs() {
-    el.partTabs.innerHTML = '';
-    const sc = scopeByKey.get(S.scope);
-    sc.parts.forEach(pi => {
-      const p = parts[pi];
+  // One button per disorder: scrolls the table to its column
+  function buildJumps() {
+    el.jumpBar.innerHTML = '';
+    DIS.forEach(d => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'part-tab' + (sc.parts.length === 1 ? ' solo' : '');
-      b.setAttribute('role', 'tab');
-      b.dataset.part = pi;
+      b.className = 'jump';
+      b.dataset.col = d.idx;
+      b.title = d.name;
       const name = document.createElement('span');
-      name.textContent = p.title;
-      const count = document.createElement('span');
-      count.className = 'pt-count';
+      name.className = 'jump-name';
+      name.textContent = d.short;
       const fill = document.createElement('span');
-      fill.className = 'pt-fill';
+      fill.className = 'jump-fill';
       fill.setAttribute('aria-hidden', 'true');
-      b.append(name, count, fill);
-      b.countEl = count; b.fillEl = fill;
-      el.partTabs.appendChild(b);
+      b.insertAdjacentHTML('afterbegin', CHECK_SVG);
+      b.append(name, fill);
+      b.fillEl = fill;
+      el.jumpBar.appendChild(b);
+      jumps.push(b);
     });
   }
 
+  function scrollToCol(ci, smooth = true) {
+    const th = heads[ci] && heads[ci].th;
+    if (!th) return;
+    const br = el.board.getBoundingClientRect();
+    const dx = th.getBoundingClientRect().left - (br.left + corner.offsetWidth) - 1;
+    el.board.scrollBy({ left: dx, behavior: smooth && !reduceMotion.matches ? 'smooth' : 'auto' });
+  }
+
+  // Which columns are on screen (lights up their jump buttons)
+  let viewRaf = 0;
+  function markInView() {
+    viewRaf = 0;
+    if (!corner) return; // the table isn't built yet
+    const br = el.board.getBoundingClientRect();
+    const left = br.left + corner.offsetWidth, right = br.right;
+    let first = null;
+    heads.forEach((h, ci) => {
+      const r = h.th.getBoundingClientRect();
+      const seen = Math.min(r.right, right) - Math.max(r.left, left);
+      const on = seen > r.width * 0.5;
+      jumps[ci].classList.toggle('inview', on);
+      if (on && first == null) first = ci;
+    });
+    // Keep the lit buttons visible in the bar (it scrolls sideways on small screens)
+    if (first != null && el.jumpBar.scrollWidth > el.jumpBar.clientWidth) {
+      const jb = el.jumpBar.getBoundingClientRect(), r = jumps[first].getBoundingClientRect();
+      if (r.left < jb.left || r.right > jb.right) el.jumpBar.scrollLeft += r.left - jb.left - 8;
+    }
+  }
+  const queueInView = () => { if (!viewRaf) viewRaf = requestAnimationFrame(markInView); };
+
   // ------------------------------------------------------------------
-  // The full table (study view)
+  // The full table (study view); printed in slices of five disorders per page
   // ------------------------------------------------------------------
-  let studyPart = 0;
+  function studyTable(cols, cls) {
+    const t = document.createElement('table');
+    t.className = 'study ' + (cls || '');
+    t.style.setProperty('--n', cols.length);
+    const cg = document.createElement('colgroup');
+    const cc = document.createElement('col'); cc.className = 'c-crit'; cg.appendChild(cc);
+    cols.forEach(() => cg.appendChild(document.createElement('col')));
+    t.appendChild(cg);
+    const hr = t.createTHead().insertRow();
+    const c0 = document.createElement('th');
+    c0.className = 'corner';
+    c0.textContent = 'Criteria';
+    hr.appendChild(c0);
+    cols.forEach(d => { const th = document.createElement('th'); th.textContent = d.name; hr.appendChild(th); });
+    const tb = t.createTBody();
+    ROWS.forEach(row => {
+      const tr = tb.insertRow();
+      const th = document.createElement('th');
+      th.scope = 'row';
+      th.textContent = critText(row.crit);
+      tr.appendChild(th);
+      cols.forEach(d => {
+        const c = row.cells[d.idx];
+        const td = tr.insertCell();
+        if (c.key === 'not specified') td.className = 'ns';
+        fillText(td, c.label);
+      });
+    });
+    return t;
+  }
   function buildStudy() {
     el.tableWrap.innerHTML = '';
-    el.studyTabs.innerHTML = '';
-    parts.forEach(p => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.dataset.part = p.idx;
-      b.textContent = p.title;
-      b.addEventListener('click', () => showStudy(p.idx));
-      el.studyTabs.appendChild(b);
-
-      const wrap = document.createElement('div');
-      wrap.className = 'study-part';
-      wrap.dataset.part = p.idx;
-      const h = document.createElement('h3');
-      h.textContent = `Developmental Disorders (${p.title})`;
-      const t = document.createElement('table');
-      t.className = 'study';
-      const cg = document.createElement('colgroup');
-      const cc = document.createElement('col'); cc.className = 'c-crit'; cg.appendChild(cc);
-      p.disorders.forEach(() => cg.appendChild(document.createElement('col')));
-      t.appendChild(cg);
-      const hr = t.createTHead().insertRow();
-      const corner = document.createElement('th');
-      corner.className = 'corner';
-      corner.textContent = 'Criteria';
-      hr.appendChild(corner);
-      p.disorders.forEach(d => { const th = document.createElement('th'); th.textContent = d.name; hr.appendChild(th); });
-      const tb = t.createTBody();
-      p.rows.forEach(row => {
-        const tr = tb.insertRow();
-        const th = document.createElement('th');
-        th.scope = 'row';
-        th.textContent = critText(row.crit);
-        tr.appendChild(th);
-        row.cells.forEach(c => {
-          const td = tr.insertCell();
-          if (c.key === 'not specified') td.className = 'ns';
-          fillText(td, c.label);
-        });
-      });
-      wrap.append(h, t);
-      el.tableWrap.appendChild(wrap);
-    });
+    el.tableWrap.appendChild(studyTable(DIS, 'study-screen'));
+    const print = document.createElement('div');
+    print.className = 'study-print';
+    for (let i = 0; i < DIS.length; i += 5) print.appendChild(studyTable(DIS.slice(i, i + 5), 'study-slice'));
+    el.tableWrap.appendChild(print);
   }
-  function showStudy(pi) {
-    studyPart = pi;
-    el.studyTabs.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.part === pi)));
-    el.tableWrap.querySelectorAll('.study-part').forEach(w => { w.hidden = +w.dataset.part !== pi; });
+  function openTable() {
     el.tableWrap.scrollTop = 0; el.tableWrap.scrollLeft = 0;
-  }
-  function openTable(pi) {
-    showStudy(typeof pi === 'number' ? pi : (S ? S.activePart : 0));
     if (!el.tableDialog.open) el.tableDialog.showModal();
   }
   el.tableClose.addEventListener('click', () => el.tableDialog.close());
   el.tableDone.addEventListener('click', () => el.tableDialog.close());
   el.tablePrint.addEventListener('click', () => window.print());
-  el.btnStudy.addEventListener('click', () => openTable(0));
+  el.btnStudy.addEventListener('click', openTable);
 
   // ------------------------------------------------------------------
   // Game state
@@ -580,25 +585,15 @@
   let S = null;
   let seq = 0;
 
-  function shuffle(a) {
-    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-    return a;
-  }
-
-  function newState(mode, scope) {
-    const sc = scopeByKey.get(scope) || SCOPES[0];
+  function newState(mode) {
     const cells = new Map();
-    parts.forEach(p => p.playable.forEach(c => cells.set(c.id, { value: null, locked: false, wrong: false, revealed: false, tried: new Set(), seq: 0 })));
-    // Each row's list comes in its own shuffled order, the same in every cell of the row
-    const order = new Map();
-    parts.forEach(p => p.rows.forEach(r => order.set(`${p.idx}-${r.idx}`, shuffle(r.options.map(o => o.key)))));
+    PLAYABLE.forEach(c => cells.set(c.id, { value: null, locked: false, wrong: false, revealed: false, tried: new Set(), seq: 0 }));
     return {
-      mode, scope: sc.key, scopeParts: sc.parts,
+      mode,
       nick: cleanNick(savedNick()),
-      cells, order,
-      activePart: sc.parts[0],
+      cells,
       openCell: null, lastCell: null, viaKey: false, hintKey: null,
-      doneCols: new Set(), doneParts: new Set(),
+      doneCols: new Set(),
       mistakes: 0, hints: 0, streak: 0, bestStreak: 0,
       startedAt: 0, elapsed: 0, running: false, finished: false,
       checks: 0, firstScore: null
@@ -606,13 +601,9 @@
   }
 
   const st = c => S.cells.get(c.id);
-  const scopeCells = () => S.scopeParts.flatMap(pi => parts[pi].playable);
-  const total = () => scopeCells().length;
   const lockedCount = list => list.filter(c => st(c).locked).length;
   const filledCount = list => list.filter(c => st(c).locked || st(c).value).length;
-  const colCells = (pi, ci) => parts[pi].playable.filter(c => c.col === ci);
-  const colDone = (pi, ci) => colCells(pi, ci).every(c => st(c).locked);
-  const partDone = pi => parts[pi].playable.every(c => st(c).locked);
+  const colDone = ci => colCells(ci).every(c => st(c).locked);
   const shownCount = list => (S.mode === 'test' && !S.finished ? filledCount(list) : lockedCount(list));
   // Cells a hint (or the next-cell jump) can go to
   const open = c => { const s = st(c); return !s.locked && !s.revealed && (S.mode === 'practice' || !s.value || s.wrong); };
@@ -628,87 +619,69 @@
   const elapsed = () => S.running ? Date.now() - S.startedAt : S.elapsed;
 
   function renderCells() {
-    parts.forEach(p => {
-      grids[p.idx].hidden = p.idx !== S.activePart || !S.scopeParts.includes(p.idx);
-      if (grids[p.idx].hidden) return;
-      p.playable.forEach(c => {
-        const s = st(c);
-        const b = cellEls.get(c.id);
-        let label = null, state;
-        if (s.locked) { label = c.label; state = 'correct'; }
-        else if (s.revealed) { label = c.label; state = 'revealed'; }
-        else if (s.value) { label = labelOf(c, s.value); state = s.wrong ? 'wrong' : 'placed'; }
-        else state = 'empty';
-        const shown = label == null ? '' : label;
-        if (b.shown !== shown) {
-          if (label == null) {
-            b.textEl.textContent = '';
-            b.textEl.classList.remove('multi');
-            const ph = document.createElement('span');
-            ph.className = 'placeholder';
-            ph.textContent = 'Choose…';
-            b.textEl.appendChild(ph);
-          } else fillText(b.textEl, label);
-          b.shown = shown;
-        }
-        ['empty', 'placed', 'correct', 'wrong', 'revealed'].forEach(k => b.classList.toggle(k, k === state));
-        const isOpen = S.openCell === c.id;
-        b.classList.toggle('open', isOpen);
-        b.setAttribute('aria-expanded', String(isOpen));
-        const inert = !S.running || s.locked || s.revealed;
-        b.setAttribute('aria-disabled', String(inert));
-        const where = `${rowOf(c).crit}, ${disorderOf(c).name}`;
-        let aria;
-        if (state === 'correct') aria = `${where}: ${c.label}. Correct.`;
-        else if (state === 'revealed') aria = `${where}: ${c.label}. Answer shown.`;
-        else if (state === 'wrong') aria = `${where}: ${label}. Wrong, choose again.`;
-        else if (state === 'placed') aria = `${where}: ${label}. Choose to change.`;
-        else aria = `${where}: empty. Choose an answer.`;
-        b.setAttribute('aria-label', aria);
-      });
-      heads[p.idx].forEach((h, ci) => {
-        const list = colCells(p.idx, ci);
-        const locked = lockedCount(list);
-        const complete = locked === list.length && list.length > 0;
-        h.countText.textContent = complete ? 'Done' : `${shownCount(list)}/${list.length}`;
-        h.fill.style.width = (list.length ? locked / list.length * 100 : 0) + '%';
-        h.th.classList.toggle('complete', complete);
-        h.th.classList.toggle('revealed-col', list.some(c => st(c).revealed));
-      });
+    PLAYABLE.forEach(c => {
+      const s = st(c);
+      const b = cellEls.get(c.id);
+      let label = null, state;
+      if (s.locked) { label = c.label; state = 'correct'; }
+      else if (s.revealed) { label = c.label; state = 'revealed'; }
+      else if (s.value) { label = labelOf(c, s.value); state = s.wrong ? 'wrong' : 'placed'; }
+      else state = 'empty';
+      const shown = label == null ? '' : label;
+      if (b.shown !== shown) {
+        if (label == null) {
+          b.textEl.textContent = '';
+          b.textEl.classList.remove('multi');
+          const ph = document.createElement('span');
+          ph.className = 'placeholder';
+          ph.textContent = 'Choose…';
+          b.textEl.appendChild(ph);
+        } else fillText(b.textEl, label);
+        b.shown = shown;
+      }
+      ['empty', 'placed', 'correct', 'wrong', 'revealed'].forEach(k => b.classList.toggle(k, k === state));
+      const isOpen = S.openCell === c.id;
+      b.classList.toggle('open', isOpen);
+      b.setAttribute('aria-expanded', String(isOpen));
+      b.setAttribute('aria-disabled', String(!S.running || s.locked || s.revealed));
+      const where = `${rowOf(c).crit}, ${disorderOf(c).name}`;
+      let aria;
+      if (state === 'correct') aria = `${where}: ${c.label}. Correct.`;
+      else if (state === 'revealed') aria = `${where}: ${c.label}. Answer shown.`;
+      else if (state === 'wrong') aria = `${where}: ${label}. Wrong, choose again.`;
+      else if (state === 'placed') aria = `${where}: ${label}. Choose to change.`;
+      else aria = `${where}: empty. Choose an answer.`;
+      b.setAttribute('aria-label', aria);
     });
-  }
-
-  function renderTabs() {
-    el.partTabs.querySelectorAll('.part-tab').forEach(b => {
-      const pi = +b.dataset.part;
-      const list = parts[pi].playable;
+    heads.forEach((h, ci) => {
+      const list = colCells(ci);
       const locked = lockedCount(list);
-      const done = locked === list.length;
-      b.countEl.textContent = done ? 'Done' : `${shownCount(list)}/${list.length}`;
-      b.fillEl.style.width = (locked / list.length * 100) + '%';
-      b.classList.toggle('done', done);
-      b.setAttribute('aria-selected', String(pi === S.activePart));
-      b.tabIndex = pi === S.activePart ? 0 : -1;
-      b.setAttribute('aria-label', `${parts[pi].title}: ${done ? 'complete' : `${shownCount(list)} of ${list.length}`}`);
+      const complete = locked === list.length && list.length > 0;
+      const pct = (list.length ? locked / list.length * 100 : 0) + '%';
+      h.countText.textContent = complete ? 'Done' : `${shownCount(list)}/${list.length}`;
+      h.fill.style.width = pct;
+      h.th.classList.toggle('complete', complete);
+      h.th.classList.toggle('revealed-col', list.some(c => st(c).revealed));
+      const j = jumps[ci];
+      j.fillEl.style.width = pct;
+      j.classList.toggle('done', complete);
+      j.setAttribute('aria-label', `${DIS[ci].name}: ${complete ? 'complete' : `${shownCount(list)} of ${list.length}`}`);
     });
   }
 
   function renderStats() {
-    const all = scopeCells();
-    const TOTAL = all.length;
-    const done = lockedCount(all);
+    const done = lockedCount(PLAYABLE);
     el.time.textContent = fmtTime(elapsed());
     el.score.textContent = fmtTime(scoreOf(elapsed(), S.mistakes, S.hints));
     el.mistakes.textContent = S.mode === 'test' && S.checks === 0 ? '–' : S.mistakes;
     el.hints.textContent = S.hints;
     el.progress.style.width = (done / TOTAL * 100) + '%';
     el.matchCount.textContent = S.mode === 'test' && !S.finished
-      ? `${filledCount(all)} of ${TOTAL} filled`
+      ? `${filledCount(PLAYABLE)} of ${TOTAL} filled`
       : `${done} of ${TOTAL} right`;
-    const where = S.scope === 'all' ? 'all three parts' : scopeLabel(S.scope);
-    el.modeLine.textContent = (S.nick ? S.nick + ' playing ' : '') + boardLabel(S.mode) + ' · ' + where;
+    el.modeLine.textContent = (S.nick ? S.nick + ' playing ' : '') + boardLabel(S.mode) + ' · 14 disorders';
     el.btnCheck.hidden = S.mode !== 'test';
-    el.btnCheck.disabled = !S.running || !all.some(c => { const s = st(c); return s.value && !s.locked && !s.wrong; });
+    el.btnCheck.disabled = !S.running || !PLAYABLE.some(c => { const s = st(c); return s.value && !s.locked && !s.wrong; });
     el.btnHint.disabled = !S.running;
     el.btnReveal.disabled = !S.running;
     const showStreak = S.mode === 'practice' && S.running && S.streak >= 2;
@@ -719,7 +692,7 @@
     }
   }
 
-  function render() { renderCells(); renderTabs(); renderStats(); }
+  function render() { renderCells(); renderStats(); }
 
   setInterval(() => {
     if (!S || !S.running) return;
@@ -757,6 +730,11 @@
     thumpTimer = setTimeout(() => el.mark.classList.remove('thump'), 700);
   }
   const centerOf = node => { const r = node.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  const onScreen = node => {
+    if (!corner) return false;
+    const r = node.getBoundingClientRect(), br = el.board.getBoundingClientRect();
+    return r.right > br.left + corner.offsetWidth && r.left < br.right && r.bottom > br.top && r.top < br.bottom;
+  };
 
   const STREAK_LINES = {
     3: 'Three in a row!',
@@ -781,23 +759,23 @@
     el.menuTitle.append(rowOf(c).crit, Object.assign(document.createElement('b'), { textContent: disorderOf(c).name }));
     el.menuList.innerHTML = '';
     el.menuList.setAttribute('aria-label', `${rowOf(c).crit} for ${disorderOf(c).name}`);
-    S.order.get(`${c.part}-${c.row}`).forEach((key, i) => {
+    rowOf(c).options.forEach((o, i) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'choice';
       b.setAttribute('role', 'option');
-      b.dataset.key = key;
+      b.dataset.key = o.key;
       const n = document.createElement('span');
       n.className = 'choice-n';
       n.textContent = i < 9 ? String(i + 1) : '';
       const t = document.createElement('span');
       t.className = 'choice-text';
-      fillText(t, labelOf(c, key));
+      fillText(t, o.label);
       b.append(n, t);
-      const tried = S.mode === 'practice' && s.tried.has(key);
-      if (tried) { b.classList.add('tried'); b.disabled = true; n.textContent = '×'; b.setAttribute('aria-label', `${labelOf(c, key)} (not this one)`); }
-      b.setAttribute('aria-selected', String(S.mode === 'test' && s.value === key));
-      if (S.hintKey === c.id + '|' + key) b.classList.add('hinted');
+      const tried = S.mode === 'practice' && s.tried.has(o.key);
+      if (tried) { b.classList.add('tried'); b.disabled = true; n.textContent = '×'; b.setAttribute('aria-label', `${o.label} (not this one)`); }
+      b.setAttribute('aria-selected', String(S.mode === 'test' && s.value === o.key));
+      if (S.hintKey === c.id + '|' + o.key) b.classList.add('hinted');
       el.menuList.appendChild(b);
     });
     if (S.mode === 'test' && s.value) {
@@ -826,15 +804,15 @@
     const r = b.getBoundingClientRect();
     const br = el.board.getBoundingClientRect();
     // The cell scrolled out of sight: let the list go
-    if (fromScroll && (r.bottom < br.top + 20 || r.top > br.bottom - 10 || r.right < br.left + 20 || r.left > br.right - 20)) { closeMenu({ refocus: false }); return; }
+    if (fromScroll && (r.bottom < br.top + 20 || r.top > br.bottom - 10 || r.right < br.left + corner.offsetWidth + 20 || r.left > br.right - 20)) { closeMenu({ refocus: false }); return; }
     const vw = window.innerWidth, vh = window.innerHeight;
-    const w = Math.min(460, Math.max(330, r.width + 60), vw - 24);
+    const w = Math.min(480, Math.max(340, r.width + 80), vw - 24);
     m.style.width = w + 'px';
-    m.style.maxHeight = Math.round(vh * 0.62) + 'px';
+    m.style.maxHeight = Math.round(vh * 0.66) + 'px';
     const h = m.offsetHeight;
     const below = vh - r.bottom - 14, above = r.top - 14;
-    const down = below >= Math.min(h, 300) || below >= above;
-    const maxH = Math.max(160, Math.min(vh * 0.62, down ? below : above));
+    const down = below >= Math.min(h, 320) || below >= above;
+    const maxH = Math.max(180, Math.min(vh * 0.66, down ? below : above));
     m.style.maxHeight = Math.round(maxH) + 'px';
     const hh = Math.min(h, maxH);
     const left = Math.min(Math.max(12, r.left), vw - w - 12);
@@ -886,12 +864,11 @@
     if (refocus) { const b = cellEls.get(id); if (b) b.focus({ preventScroll: true }); }
   }
 
-  // Next cell to fill after this one, in reading order, within the same part
+  // Next cell to fill after this one, in reading order
   function nextCell(c) {
-    const list = parts[c.part].playable;
-    const i = list.indexOf(c);
-    for (let k = 1; k <= list.length; k++) {
-      const x = list[(i + k) % list.length];
+    const i = PLAYABLE.indexOf(c);
+    for (let k = 1; k <= PLAYABLE.length; k++) {
+      const x = PLAYABLE[(i + k) % PLAYABLE.length];
       if (open(x) && (S.mode === 'practice' || !st(x).value)) return x;
     }
     return null;
@@ -920,7 +897,7 @@
         s.tried.add(key);
         S.mistakes++; S.streak = 0;
         sound.wrong();
-        const owners = rowOf(c).cells.filter(x => x.key === key).map(x => parts[x.part].disorders[x.col].name);
+        const owners = rowOf(c).cells.filter(x => x.key === key).map(x => DIS[x.col].name);
         buildMenu(c);
         setMenuMsg(owners.length ? `Not quite. That one belongs to ${listNames(owners)}.` : 'Not quite.');
         positionMenu();
@@ -964,43 +941,26 @@
     else b.focus({ preventScroll: true });
   }
 
-  // Newly finished disorders and parts get their moment; returns true if anything was celebrated
+  // Newly finished disorders get their moment; returns true if anything was celebrated
   function afterLocks(cells, { streakLine = '', quiet = false } = {}) {
-    const touched = new Set(cells.map(c => c.part + '-' + c.col));
-    const newCols = [];
-    touched.forEach(k => {
-      if (S.doneCols.has(k)) return;
-      const [pi, ci] = k.split('-').map(Number);
-      if (colDone(pi, ci)) { S.doneCols.add(k); newCols.push([pi, ci]); }
-    });
-    const newParts = [...new Set(cells.map(c => c.part))].filter(pi => !S.doneParts.has(pi) && partDone(pi));
-    newParts.forEach(pi => S.doneParts.add(pi));
-    const allDone = scopeCells().every(c => st(c).locked);
+    const newCols = [...new Set(cells.map(c => c.col))].filter(ci => !S.doneCols.has(ci) && colDone(ci));
+    newCols.forEach(ci => S.doneCols.add(ci));
+    const allDone = PLAYABLE.every(c => st(c).locked);
 
-    newCols.forEach(([pi, ci], i) => setTimeout(() => {
-      const h = heads[pi][ci];
+    newCols.forEach((ci, i) => setTimeout(() => {
+      const h = heads[ci];
       flash(h.th, 'beat');
-      if (!quiet && !grids[pi].hidden) {
+      flash(jumps[ci], 'pop');
+      if (!quiet && onScreen(h.th)) {
         const [x, y] = centerOf(h.th);
         confetti.burst(x, y, 26, 1, ['heart', 'heart', 'tooth', 'paper']);
       }
     }, 250 + i * 120));
 
     if (allDone) { setTimeout(finish, quiet ? 600 : 500); return true; }
-    if (quiet) { newParts.forEach(pi => flash(el.partTabs.querySelector(`[data-part="${pi}"]`), 'pop')); return false; }
-    if (newParts.length) {
-      const pi = newParts[0];
-      const next = S.scopeParts.find(x => !partDone(x));
-      sound.chime(); setTimeout(() => sound.sparkle(), 250);
-      const tab = el.partTabs.querySelector(`[data-part="${pi}"]`);
-      flash(tab, 'pop');
-      toast(next != null ? `${parts[pi].title} is complete! On to ${parts[next].title}.` : `${parts[pi].title} is complete!`, 2800, true);
-      if (next != null && S.activePart === pi) setTimeout(() => { if (S.running && S.activePart === pi && !S.openCell) switchPart(next); }, 1500);
-      return true;
-    }
     if (newCols.length && !quiet) {
       sound.chime();
-      const names = newCols.map(([pi, ci]) => parts[pi].disorders[ci].name);
+      const names = newCols.map(ci => DIS[ci].name);
       toast(`${listNames(names)}: complete!${streakLine ? ' ' + streakLine : ''}`, 2600, true);
       return true;
     }
@@ -1008,15 +968,13 @@
   }
 
   // ------------------------------------------------------------------
-  // Input: cells, the list, tabs, keyboard
+  // Input: cells, the list, the jump bar, keyboard
   // ------------------------------------------------------------------
   el.board.addEventListener('click', e => {
     const b = e.target.closest('.cell');
-    if (!b || !S) return;
+    if (!b || !S || !S.running) return;
     const c = cellById.get(b.dataset.cell);
-    if (!S.running) return;
-    const s = st(c);
-    if (s.locked) return;
+    if (st(c).locked) return;
     if (S.openCell === c.id) { closeMenu(); return; }
     openMenu(c, { viaKey: e.detail === 0 });
   });
@@ -1044,8 +1002,15 @@
     if (cell && cell.dataset.cell === S.openCell) return; // its own click toggles it
     closeMenu({ refocus: false });
   }, true);
-  el.board.addEventListener('scroll', () => { if (S && S.openCell) positionMenu({ fromScroll: true }); }, { passive: true });
-  window.addEventListener('resize', () => { if (S && S.openCell) positionMenu(); });
+  el.board.addEventListener('scroll', () => { if (S && S.openCell) positionMenu({ fromScroll: true }); queueInView(); }, { passive: true });
+  window.addEventListener('resize', () => { if (S && S.openCell) positionMenu(); queueInView(); });
+
+  el.jumpBar.addEventListener('click', e => {
+    const b = e.target.closest('.jump');
+    if (!b) return;
+    closeMenu({ refocus: false });
+    scrollToCol(+b.dataset.col);
+  });
 
   el.menu.addEventListener('keydown', e => {
     if (!S || !S.openCell) return;
@@ -1082,12 +1047,11 @@
     if (!d) return;
     e.preventDefault();
     const c = cellById.get(b.dataset.cell);
-    const p = parts[c.part];
     let r = c.row, col = c.col;
-    for (let k = 0; k < 20; k++) {
+    for (let k = 0; k < 30; k++) {
       r += d[0]; col += d[1];
-      if (r < 0 || r >= p.rows.length || col < 0 || col >= p.disorders.length) return;
-      const x = p.rows[r].cells[col];
+      if (r < 0 || r >= ROWS.length || col < 0 || col >= DIS.length) return;
+      const x = ROWS[r].cells[col];
       if (!x.given) { const nb = cellEls.get(x.id); nb.focus({ preventScroll: true }); nb.scrollIntoView({ block: 'nearest', inline: 'nearest' }); return; }
     }
   });
@@ -1096,43 +1060,21 @@
     if (e.key === 'Escape' && S && S.openCell && !document.querySelector('dialog[open]')) closeMenu();
   });
 
-  function switchPart(pi) {
-    if (!S.scopeParts.includes(pi) || pi === S.activePart) return;
-    closeMenu({ refocus: false });
-    S.activePart = pi;
-    render();
-    el.board.scrollTop = 0; el.board.scrollLeft = 0;
-  }
-  el.partTabs.addEventListener('click', e => {
-    const b = e.target.closest('.part-tab');
-    if (b && S) switchPart(+b.dataset.part);
-  });
-  el.partTabs.addEventListener('keydown', e => {
-    if (!S || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
-    const list = S.scopeParts;
-    const i = list.indexOf(S.activePart);
-    const n = list[(i + (e.key === 'ArrowRight' ? 1 : list.length - 1)) % list.length];
-    switchPart(n);
-    const t = el.partTabs.querySelector(`[data-part="${n}"]`);
-    if (t) t.focus();
-  });
-
   // ------------------------------------------------------------------
   // Hints
   // ------------------------------------------------------------------
   el.btnHint.addEventListener('click', () => {
     if (!S.running) return;
-    const all = scopeCells();
-    const cands = all.filter(open);
+    const cands = PLAYABLE.filter(open);
     if (!cands.length) {
       toast(S.mode === 'test' ? 'Every cell is filled. Check your answers.' : 'Nothing left to fill.');
       return;
     }
-    const pick = [S.openCell, S.lastCell].map(id => id && cellById.get(id)).find(c => c && open(c) && S.scopeParts.includes(c.part) && c.part === S.activePart)
-      || cands.find(c => c.part === S.activePart)
+    // The cell she was just on, else one already on screen, else the first one left
+    const pick = [S.openCell, S.lastCell].map(id => id && cellById.get(id)).find(c => c && open(c))
+      || cands.find(c => onScreen(cellEls.get(c.id)))
       || cands[0];
     S.hints++;
-    if (pick.part !== S.activePart) switchPart(pick.part);
     S.hintKey = pick.id + '|' + pick.key;
     openMenu(pick, { focusKey: pick.key });
     setMenuMsg('Hint: the right answer is pulsing.', true);
@@ -1146,9 +1088,8 @@
   el.btnCheck.addEventListener('click', () => {
     if (!S.running) return;
     closeMenu({ refocus: false });
-    const all = scopeCells();
     // Cells already marked wrong and left unchanged aren't graded (or charged) twice
-    const placed = all.filter(c => { const s = st(c); return s.value && !s.locked && !s.wrong; });
+    const placed = PLAYABLE.filter(c => { const s = st(c); return s.value && !s.locked && !s.wrong; });
     const correct = placed.filter(c => st(c).value === c.key);
     const wrong = placed.filter(c => st(c).value !== c.key);
     correct.forEach(c => { const s = st(c); s.locked = true; s.wrong = false; });
@@ -1157,15 +1098,14 @@
     S.mistakes += wrong.length;
     if (S.firstScore == null) S.firstScore = correct.length;
     render();
-    correct.filter(c => c.part === S.activePart).forEach((c, i) => setTimeout(() => flash(cellEls.get(c.id), 'flow'), Math.min(i * 30, 1200)));
+    correct.filter(c => onScreen(cellEls.get(c.id))).forEach((c, i) => setTimeout(() => flash(cellEls.get(c.id), 'flow'), Math.min(i * 30, 1200)));
     afterLocks(correct, { quiet: true });
-    if (all.every(c => st(c).locked)) return; // finish() takes it from here
+    if (PLAYABLE.every(c => st(c).locked)) return; // finish() takes it from here
     if (correct.length) sound.correct(); else sound.wrong();
 
-    const done = lockedCount(all);
-    const TOTAL = all.length;
-    const empty = all.filter(c => !st(c).value && !st(c).locked).length;
-    const wrongNow = all.filter(c => st(c).wrong);
+    const done = lockedCount(PLAYABLE);
+    const empty = PLAYABLE.filter(c => !st(c).value && !st(c).locked).length;
+    const wrongNow = PLAYABLE.filter(c => st(c).wrong);
     const pct = Math.round(done / TOTAL * 100);
     const bits = [];
     if (wrongNow.length) bits.push(`${wrongNow.length} ${wrongNow.length === 1 ? 'cell is' : 'cells are'} wrong (marked in amber).`);
@@ -1179,11 +1119,10 @@
         { label: 'Show answers', cls: 'btn', fn: () => askReveal() },
         {
           label: wrongNow.length ? 'Try the wrong ones again' : 'Keep going', cls: 'btn btn-primary', fn: () => {
-            all.forEach(c => { const s = st(c); if (s.wrong) { s.wrong = false; s.value = null; } });
-            const firstWrong = wrongNow.find(c => c.part === S.activePart) || wrongNow[0];
-            if (firstWrong && firstWrong.part !== S.activePart) switchPart(firstWrong.part);
+            PLAYABLE.forEach(c => { const s = st(c); if (s.wrong) { s.wrong = false; s.value = null; } });
             render();
-            if (firstWrong) cellEls.get(firstWrong.id).scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            const first = wrongNow[0];
+            if (first) cellEls.get(first.id).scrollIntoView({ block: 'nearest', inline: 'nearest' });
           }
         }
       ]
@@ -1205,7 +1144,7 @@
 
   function reveal() {
     closeMenu({ refocus: false });
-    scopeCells().forEach(c => { const s = st(c); if (!s.locked) { s.value = null; s.wrong = false; s.revealed = true; } });
+    PLAYABLE.forEach(c => { const s = st(c); if (!s.locked) { s.value = null; s.wrong = false; s.revealed = true; } });
     stopClock();
     S.finished = true;
     render();
@@ -1222,16 +1161,15 @@
     stopClock();
     S.finished = true;
     render();
-    const TOTAL = total();
     const time = Math.round(S.elapsed);
     const score = scoreOf(time, S.mistakes, S.hints);
-    const run = { nickname: S.nick, mode: S.mode, scope: S.scope, time_ms: time, mistakes: S.mistakes, hints: S.hints };
+    const run = { nickname: S.nick, mode: S.mode, scope: SCOPE, time_ms: time, mistakes: S.mistakes, hints: S.hints };
 
     // Every finished run is kept on this device too (and powers the offline leaderboard)
     const key = nickKey(S.nick);
     const local = store.get('runs', []);
     const prevBest = local
-      .filter(r => nickKey(r.nickname) === key && r.mode === run.mode && r.scope === run.scope)
+      .filter(r => nickKey(r.nickname) === key && r.mode === run.mode && r.scope === SCOPE)
       .reduce((m, r) => Math.min(m, r.score_ms), Infinity);
     local.push(Object.assign({}, run, { score_ms: score, at: new Date().toISOString() }));
     store.set('runs', local.slice(-300));
@@ -1262,11 +1200,10 @@
         stats: [['Score', fmtTime(score)], ['Time', fmtTime(time)], ['Mistakes', S.mistakes], ['Hints', S.hints]],
         best: lb.on ? 'Saving your score to the leaderboard…' : localBestLine(prevBest, score),
         actions: [
-          { label: 'See the full table', cls: 'btn', fn: () => openTable(S.activePart) },
-          { label: 'Leaderboard', cls: 'btn', fn: () => openBoard(run.mode, run.scope) },
+          { label: 'See the full table', cls: 'btn', fn: openTable, keepOpen: true },
+          { label: 'Leaderboard', cls: 'btn', fn: () => openBoard(run.mode) },
           { label: 'Play again', cls: 'btn btn-primary', fn: () => openIntro() }
-        ],
-        keepOpenFor: 'table'
+        ]
       });
       confetti.raise();
       if (lb.on) submitRun(run, score, prevBest);
@@ -1278,9 +1215,8 @@
   function celebrate(done) {
     sound.finish();
     if (reduceMotion.matches) { done(); return; }
-    const pi = S.activePart;
-    [0, 850].forEach(b0 => heads[pi].forEach((h, i) => setTimeout(() => flash(h.th, 'beat'), b0 + i * 70)));
-    parts[pi].playable.forEach(c => setTimeout(() => flash(cellEls.get(c.id), 'glow'), (c.col * 60 + c.row * 40)));
+    [0, 850].forEach(b0 => heads.forEach((h, i) => setTimeout(() => flash(h.th, 'beat'), b0 + i * 45)));
+    PLAYABLE.filter(c => onScreen(cellEls.get(c.id))).forEach(c => setTimeout(() => flash(cellEls.get(c.id), 'glow'), c.col * 45 + c.row * 40));
     setTimeout(() => confetti.rain(), 500);
     setTimeout(done, 1900);
   }
@@ -1294,16 +1230,15 @@
   async function submitRun(run, score, prevLocalBest) {
     const line = el.resultBest;
     if (run.time_ms < MIN_TIME_MS) { line.textContent = localBestLine(prevLocalBest, score); return; }
-    const boardName = `${boardLabel(run.mode)} · ${scopeByKey.get(run.scope).short}`;
     try {
-      const board = await lb.board(run.mode, run.scope) || [];
+      const board = await lb.board(run.mode) || [];
       await lb.submit(run);
       const key = nickKey(run.nickname);
       const mine = board.find(r => r.nickname_key === key);
       const others = board.filter(r => r.nickname_key !== key);
       const best = mine ? Math.min(mine.score_ms, score) : score;
       const rank = 1 + others.filter(r => r.score_ms < best).length;
-      const where = `#${rank} of ${others.length + 1} on the ${boardName} leaderboard`;
+      const where = `#${rank} of ${others.length + 1} on the ${boardLabel(run.mode)} leaderboard`;
       if (!mine) line.textContent = `Saved. You’re on the board at ${where}.`;
       else if (score < mine.score_ms) line.textContent = `New personal best. You’re ${where}.`;
       else line.textContent = `Saved. Your best is still ${fmtTime(mine.score_ms)}, ${where}.`;
@@ -1319,7 +1254,7 @@
     }
   }
 
-  function showResult({ title, text, stats, best, actions, mascot, keepOpenFor }) {
+  function showResult({ title, text, stats, best, actions, mascot }) {
     el.mascot.hidden = !mascot;
     el.resultTitle.textContent = title;
     el.resultText.textContent = text;
@@ -1333,12 +1268,12 @@
     });
     el.resultBest.textContent = best || '';
     el.resultActions.innerHTML = '';
-    actions.forEach((a, i) => {
+    actions.forEach(a => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = a.cls; b.textContent = a.label;
       b.addEventListener('click', () => {
         // "See the full table" opens on top, so the result stays underneath
-        if (!(keepOpenFor === 'table' && i === 0)) el.result.close();
+        if (!a.keepOpen) el.result.close();
         a.fn();
       });
       el.resultActions.appendChild(b);
@@ -1365,33 +1300,11 @@
   // ------------------------------------------------------------------
   // New game / intro
   // ------------------------------------------------------------------
-  function buildScopes() {
-    el.scopeGrid.innerHTML = '';
-    SCOPES.forEach(sc => {
-      const n = sc.parts.reduce((m, pi) => m + parts[pi].playable.length, 0);
-      const nd = sc.parts.reduce((m, pi) => m + parts[pi].disorders.length, 0);
-      const lab = document.createElement('label');
-      lab.className = 'scope-card';
-      const inp = document.createElement('input');
-      inp.type = 'radio'; inp.name = 'scope'; inp.value = sc.key;
-      const name = document.createElement('span');
-      name.className = 'scope-name';
-      name.textContent = sc.short;
-      const desc = document.createElement('span');
-      desc.className = 'scope-desc';
-      desc.textContent = `${nd} disorders · ${n} cells`;
-      lab.title = sc.parts.flatMap(pi => parts[pi].disorders.map(d => d.name)).join(', ');
-      lab.append(inp, name, desc);
-      el.scopeGrid.appendChild(lab);
-    });
-  }
-
   const NICK_HINT = 'Use the same nickname every time to keep all your scores together.';
   function openIntro() {
     closeMenu({ refocus: false });
-    const prefs = store.get('prefs', { mode: 'practice', scope: 'all' });
+    const prefs = store.get('prefs', { mode: 'practice' });
     el.introForm.elements.mode.value = prefs.mode === 'test' ? 'test' : 'practice';
-    el.introForm.elements.scope.value = scopeByKey.has(prefs.scope) ? prefs.scope : 'all';
     el.nickInput.value = cleanNick(savedNick());
     el.nickHint.textContent = NICK_HINT;
     el.nickHint.classList.remove('error');
@@ -1410,28 +1323,27 @@
       return;
     }
     const mode = el.introForm.elements.mode.value === 'test' ? 'test' : 'practice';
-    const scope = scopeByKey.has(el.introForm.elements.scope.value) ? el.introForm.elements.scope.value : 'all';
-    store.set('prefs', { mode, scope });
+    store.set('prefs', { mode });
     store.set('nickname', nick);
     el.intro.close();
-    startGame(mode, scope);
+    startGame(mode);
   });
 
   el.btnNew.addEventListener('click', () => {
-    const inProgress = S && S.running && (scopeCells().some(c => st(c).value || st(c).locked) || elapsed() > 15000);
+    const inProgress = S && S.running && (PLAYABLE.some(c => st(c).value || st(c).locked) || elapsed() > 15000);
     const go = () => { if (S.running) stopClock(); openIntro(); };
     if (inProgress) confirmBox({ title: 'Start a new game?', text: 'You’ll lose your progress on this table.', yes: 'New game', no: 'Keep playing', onYes: go });
     else go();
   });
 
-  function startGame(mode, scope) {
+  function startGame(mode) {
     closeMenu({ refocus: false });
-    S = newState(mode, scope);
-    buildTabs();
+    S = newState(mode);
     S.running = true;
     S.startedAt = Date.now();
     render();
     el.board.scrollTop = 0; el.board.scrollLeft = 0;
+    queueInView();
     sound.ensure(); // unlock audio on this user gesture
     toast(mode === 'practice' ? 'Open a cell and choose its answer.' : 'Fill every cell, then press Check answers.', 3200);
   }
@@ -1447,7 +1359,7 @@
   // ------------------------------------------------------------------
   // Leaderboard dialog
   // ------------------------------------------------------------------
-  const boardView = { mode: 'practice', scope: 'all', token: 0 };
+  const boardView = { mode: 'practice', token: 0 };
 
   function fmtWhen(iso) {
     const d = new Date(iso);
@@ -1457,9 +1369,10 @@
       ', ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   }
 
-  function localBoard(mode, scope) {
+  const localRuns = () => store.get('runs', []).filter(r => (r.scope || SCOPE) === SCOPE);
+  function localBoard(mode) {
     const best = new Map();
-    store.get('runs', []).filter(r => r.mode === mode && r.scope === scope).forEach(r => {
+    localRuns().filter(r => r.mode === mode).forEach(r => {
       const k = nickKey(r.nickname);
       const cur = best.get(k);
       if (!cur) best.set(k, Object.assign({}, r, { nickname_key: k, runs: 1, created_at: r.at }));
@@ -1471,21 +1384,8 @@
     return [...best.values()].sort((a, b) => a.score_ms - b.score_ms || String(a.created_at).localeCompare(String(b.created_at)));
   }
 
-  function buildBoardScopes() {
-    el.boardScopes.innerHTML = '';
-    SCOPES.forEach(sc => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.dataset.bscope = sc.key;
-      b.textContent = sc.short;
-      b.addEventListener('click', () => { boardView.scope = sc.key; loadBoard(); });
-      el.boardScopes.appendChild(b);
-    });
-  }
-
-  function openBoard(mode, scope) {
+  function openBoard(mode) {
     boardView.mode = mode || (S ? S.mode : 'practice');
-    boardView.scope = scope || (S ? S.scope : 'all');
     if (!el.boardDialog.open) el.boardDialog.showModal();
     loadBoard();
   }
@@ -1493,11 +1393,10 @@
   async function loadBoard() {
     const token = ++boardView.token;
     el.boardDialog.querySelectorAll('[data-bmode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.bmode === boardView.mode)));
-    el.boardDialog.querySelectorAll('[data-bscope]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.bscope === boardView.scope)));
     el.boardBody.innerHTML = '<p class="board-msg">Loading scores…</p>';
     let rows = null, note = '';
     if (lb.on) {
-      try { rows = await lb.board(boardView.mode, boardView.scope) || []; }
+      try { rows = await lb.board(boardView.mode) || []; }
       catch (e) {
         note = notSetUp(e)
           ? 'The global leaderboard for this game isn’t switched on yet, so this shows scores from this device only.'
@@ -1508,7 +1407,7 @@
     }
     if (token !== boardView.token) return; // a newer tab was chosen meanwhile
     const global = !!rows;
-    if (!rows) rows = localBoard(boardView.mode, boardView.scope);
+    if (!rows) rows = localBoard(boardView.mode);
     el.boardNote.textContent = note;
     el.boardNote.hidden = !note;
     renderBoard(rows, global);
@@ -1524,7 +1423,7 @@
   function renderBoard(rows, global) {
     el.boardBody.innerHTML = '';
     if (!rows.length) {
-      el.boardBody.appendChild(cell('p', `No scores on the ${boardLabel(boardView.mode)} · ${scopeByKey.get(boardView.scope).short} board yet. Finish a game to be the first.`, 'board-msg'));
+      el.boardBody.appendChild(cell('p', `No scores on the ${boardLabel(boardView.mode)} board yet. Finish a game to be the first.`, 'board-msg'));
       return;
     }
     const me = nickKey(savedNick());
@@ -1574,7 +1473,7 @@
     let runs;
     try {
       runs = global ? (await lb.runs(r.nickname_key) || [])
-        : store.get('runs', []).filter(x => nickKey(x.nickname) === r.nickname_key).map(x => Object.assign({}, x, { created_at: x.at })).reverse();
+        : localRuns().filter(x => nickKey(x.nickname) === r.nickname_key).map(x => Object.assign({}, x, { created_at: x.at })).reverse();
     } catch (e) {
       td.textContent = 'Couldn’t load this player’s runs. Try again in a moment.';
       return;
@@ -1583,15 +1482,14 @@
     td.appendChild(cell('p', `${plural(runs.length, 'run')} by ${r.nickname}${global ? '' : ' on this device'}`, 'runs-title'));
     const t = cell('table', null, 'runs');
     const h = t.createTHead().insertRow();
-    [['When', ''], ['Mode', ''], ['Table', ''], ['Score', 'num'], ['Time', 'num opt'], ['Mistakes', 'num opt'], ['Hints', 'num opt']].forEach(([x, c]) => h.appendChild(cell('th', x, c)));
+    [['When', ''], ['Mode', ''], ['Score', 'num'], ['Time', 'num'], ['Mistakes', 'num opt'], ['Hints', 'num opt']].forEach(([x, c]) => h.appendChild(cell('th', x, c)));
     const b = t.createTBody();
     runs.forEach(x => {
       const rr = b.insertRow();
       rr.appendChild(cell('td', fmtWhen(x.created_at)));
       rr.appendChild(cell('td', boardLabel(x.mode)));
-      rr.appendChild(cell('td', (scopeByKey.get(x.scope) || SCOPES[0]).short));
       rr.appendChild(cell('td', fmtTime(x.score_ms), 'num score'));
-      rr.appendChild(cell('td', fmtTime(x.time_ms), 'num opt'));
+      rr.appendChild(cell('td', fmtTime(x.time_ms), 'num'));
       rr.appendChild(cell('td', x.mistakes, 'num opt'));
       rr.appendChild(cell('td', x.hints, 'num opt'));
     });
@@ -1616,18 +1514,17 @@
   // ------------------------------------------------------------------
   function boot() {
     buildBoard();
+    buildJumps();
     buildStudy();
-    buildScopes();
-    buildBoardScopes();
-    S = newState('practice', store.get('prefs', {}).scope || 'all');
+    S = newState('practice');
     S.running = false;
-    buildTabs();
     render();
     renderSound();
+    queueInView();
     openIntro();
     flushPending();
     // For a quick check from the console or a test: the numbers the game is built from
-    window.DISORDERS_GAME = { parts: parts.length, disorders: ALL_DISORDERS, cells: ALL_PLAYABLE };
+    window.DISORDERS_GAME = { disorders: DIS.length, criteria: CRITS.length, cells: TOTAL };
   }
 
   const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();

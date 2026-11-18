@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Developmental Disorders · Fill the Table</title>
-<meta name="description" content="A study game for developmental disorders: fill an empty table, one dropdown at a time.">
+<meta name="description" content="A study game for developmental disorders: fill an empty table of 14 disorders, one dropdown at a time.">
 <meta name="theme-color" content="#A8132C">
 <meta property="og:title" content="Developmental Disorders">
 <meta property="og:description" content="Fill the table: 14 developmental disorders, 10 criteria, one dropdown per cell.">
@@ -53,11 +53,9 @@
 
   <main class="table-panel" id="tablePanel">
     <div class="panel-head">
-      <div class="panel-title">
-        <div class="part-tabs" id="partTabs" role="tablist" aria-label="Parts of the table"></div>
-        <span id="matchCount">0 of 131 filled</span>
-      </div>
+      <nav class="jump-bar" id="jumpBar" aria-label="Jump to a disorder"></nav>
       <div class="head-right">
+        <span id="matchCount">0 of 140 right</span>
         <div class="streak" id="streak" hidden aria-live="polite">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.6 2.5c.5 3.1-1.3 4.6-2.8 6.3-1.4 1.6-2.6 3.2-2.6 5.6a4.8 4.8 0 0 0 9.6 0c0-1.6-.6-2.9-1.4-4 .1 1.3-.4 2.4-1.4 2.9.5-2.6-.2-4.9-1.4-6.6.9 2.9-.3 4.6-1.4 5.6-.3-1.3.1-2.6.9-3.9 1.3-2 2.4-3.6 1.9-5.9z"/></svg>
           <span id="streakText">0 in a row</span>
@@ -88,7 +86,7 @@
 <dialog class="sheet" id="introDialog" aria-labelledby="introTitle">
   <form method="dialog" id="introForm">
     <h2 id="introTitle">Fill in the table</h2>
-    <p class="lede">The table is empty except for its criteria. Open each cell and choose the right answer from its list. Every list holds the answers from that row, so you have to know which disorder each one belongs to.</p>
+    <p class="lede">The table of 14 disorders is empty except for its criteria. Open each cell and choose the right answer from its list. Every list holds that criterion's answers for all 14 disorders, so you have to know which one belongs where.</p>
 
     <label class="field" for="nickInput">
       <span class="field-label">Your nickname</span>
@@ -108,11 +106,6 @@
         <span class="mode-name">Test</span>
         <span class="mode-desc">Fill the cells without feedback, then check your answers and get a score.</span>
       </label>
-    </fieldset>
-
-    <fieldset class="scopes" id="scopeField">
-      <legend>Which table?</legend>
-      <div class="scope-grid" id="scopeGrid"></div>
     </fieldset>
 
     <p class="rule">Your score is your time plus 10 seconds for each mistake and 20 seconds for each hint. Lower is better.</p>
@@ -162,7 +155,6 @@
       <button type="button" data-bmode="practice" aria-pressed="true">Practice</button>
       <button type="button" data-bmode="test" aria-pressed="false">Test</button>
     </div>
-    <div class="seg" role="group" aria-label="Table" id="boardScopes"></div>
   </div>
   <p class="board-note" id="boardNote" hidden></p>
   <div class="board-body" id="boardBody"></div>
@@ -175,7 +167,6 @@
     <button class="dialog-close" type="button" id="tableClose" aria-label="Close table">&times;</button>
   </div>
   <p class="lede table-lede">The whole table, in the order of the original document.</p>
-  <div class="study-tabs seg" role="group" aria-label="Part" id="studyTabs"></div>
   <div class="table-wrap" id="tableWrap"></div>
   <div class="dialog-actions">
     <button class="btn" type="button" id="tablePrint">Print</button>

@@ -11,8 +11,9 @@
 --   * add a score, within sane limits, at most once every 15 s per nickname
 --   * never change or delete a score
 --
--- Each run records its mode (practice or test) and which table was played (scope):
--- all three parts, or one part. There's one board per mode and scope.
+-- Each run records its mode (practice or test). The scope column says which table was
+-- played: the game always plays the whole table ('all'); the part values are kept in case
+-- a shorter variation comes back. There's one board per mode and scope.
 --
 -- Score = time + 10 s per mistake + 20 s per hint. Lower is better.
 -- To change the penalties later, change MISTAKE_PENALTY_MS / HINT_PENALTY_MS in
@@ -37,7 +38,7 @@ create table if not exists public.disorders_scores (
   constraint disorders_nickname_len check (char_length(btrim(nickname)) between 1 and 24),
   constraint disorders_mode         check (mode in ('practice', 'test')),
   constraint disorders_scope        check (scope in ('all', 'part1', 'part2', 'part3')),
-  -- even the smallest part has 36 cells: nobody fills them honestly in under 20 seconds
+  -- 140 cells (or 36 in the smallest part): nobody fills them honestly in under 20 seconds
   constraint disorders_time_range   check (time_ms between 20000 and 86400000),
   constraint disorders_mistakes     check (mistakes between 0 and 10000),
   constraint disorders_hints        check (hints between 0 and 500)
